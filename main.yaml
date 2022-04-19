@@ -1,0 +1,6 @@
+-
+  name: Zabbix Installing
+  hosts: all
+  roles:
+    - zabbix
+    - mariadb

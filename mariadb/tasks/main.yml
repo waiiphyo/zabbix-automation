@@ -1,0 +1,73 @@
+---
+    - name: Update the system
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+        force_apt_get: true
+      become: true
+
+    - name: Install Packages
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - default-libmysqlclient-dev
+        - python3-pip
+        - mydumper
+        - mysqltuner
+      become: true
+
+    - name: Service Start Database
+      service:
+        name: mysql
+        state: restarted
+      become: true
+
+    - name: Determine required MySQL Python libraries.
+      set_fact:
+       deb_mysql_python_package: "{% if 'python3' in ansible_python_interpreter|default('') %}python3-mysqldb{% else %}python-mysqldb{% endif %}"
+
+    - name: Ensure MySQL Python libraries are installed.
+      apt: "name={{ deb_mysql_python_package }} state=present"
+      become: true
+
+    - name: Create Database
+      mysql_db:
+       name: zabbix
+       state: present
+      become: true
+
+    - name: Create Database User
+      mysql_user:
+       name: zabbixadm
+       password: Fr0nt!!r
+       priv: '*.*:ALL'
+       state: present
+       host: '%'
+      become: true
+
+    - name: Zabbix Database Schema
+      command: zcat /usr/share/doc/zabbix-server-mysql/NEWS.Debian.gz | mysql -u zabbixadm -p Fr0nt!!r
+      become: true
+
+    - name: Configure Database
+      lineinfile:
+       dest: /etc/zabbix/zabbix_server.conf
+       regexp: "{{ item.regexp }}"
+       line: '{{ item.line }}'
+       state: present
+      loop:
+        - { regexp: 'DBName', line: 'DBName=zabbix'}
+        - { regexp: 'DBUser', line: 'DBUser=zabbixadm'}
+        - { regexp: 'DBPassword', line: 'DBPassword=Fr0nt!!r'}
+
+    - name: Zabbix Service Restart
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enable: true
+      loop:
+        - zabbix-server
+        - nginx
+        - php7.2-fpm
+      become: true

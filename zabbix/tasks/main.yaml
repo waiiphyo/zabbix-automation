@@ -1,0 +1,57 @@
+  - name: Add Zabbix Repo
+    ansible.builtin.apt_repository:
+      repo: "{{ item }}"
+      state: present
+      filename: zabbix
+    with_items:
+      - deb http://repo.zabbix.com/zabbix/5.0/ubuntu bionic main
+      - deb-src http://repo.zabbix.com/zabbix/5.0/ubuntu bionic main
+    become: true
+
+  - name: Update the system
+    apt:
+      update_cache: true
+      cache_valid_time: 3600
+      force_apt_get: true
+    become: true
+
+  - name: Install Zabbix Server Frontend
+    apt:
+      name: "{{ item }}"
+      state: present
+    loop:
+      - zabbix-server-mysql
+      - zabbix-frontend-php
+      - zabbix-nginx-conf
+      - nginx
+    become: true
+
+  - name: Configure Zabbix Frontend
+    ansible.builtin.copy:
+      src: /etc/zabbix/nginx.conf
+      dest: /etc/nginx/sites-available/nginx.conf
+      backup: yes
+      remote_src: yes
+      force: yes
+    become: true
+
+  - name: Link Config file
+    ansible.builtin.file:
+     src: /etc/nginx/sites-available/nginx.conf
+     dest: /etc/nginx/sites-enabled/nginx.conf
+     state: link
+    become: true
+
+  - name: Delete Default Config file
+    ansible.builtin.file:
+      path: /etc/nginx/sites-enabled/default
+      state: absent
+    become: true
+
+  - name: Change Timezone
+    lineinfile:
+      dest: /etc/zabbix/php-fpm.conf
+      regexp: 'Europe/Riga'
+      line: 'php_value[date.timezone] = Asia/Yangon'
+      state: present
+    become: true
